@@ -1,7 +1,0 @@
-numpy
-pytest
-scikit-image
-scikit-learn
-setuptools
-matplotlib
-opencv-python
