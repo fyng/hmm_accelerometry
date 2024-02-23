@@ -16,6 +16,11 @@ class HMM:
         self.log_likelihood = None
 
     def fit(self, X):
+        X = X.astype(int).flatten() 
+        loss = []
+
+        # TODO: add guards on n_obs v.s. data range
+
         # initialize parameters
         self.A = np.eye(self.n_hidden, self.n_hidden) / 2
         for i in range(self.n_hidden):
@@ -34,31 +39,33 @@ class HMM:
 
             # forward
             for t in range(1, T):
-                alpha[t] = alpha[t-1] * self.A.dot(self.B[:, X[t]])
-        
-            print(alpha[-1])
-            ll = np.log(alpha[-1].sum())
-
+                alpha[t] = alpha[t-1].dot(self.A.dot(self.B[:, X[t]]))
             # backward
             beta = np.zeros((T, self.n_hidden))
             beta[-1] = 1
             for t in range(T-2, -1, -1):
-                beta[t] = beta[t+1] * self.A.dot(self.B[:, X[t+1]])
+                beta[t] = beta[t+1].dot(self.A.dot(self.B[:, X[t+1]]))
 
+            ll = np.log(alpha[-1]).sum()
+            loss.append(ll)
+
+            # EM
             gamma, xi = self._e_step(X, alpha, beta)
             self._m_step(X, gamma, xi)
 
             if self.verbose:
                 print(f'iteration {i+1}, log likelihood: {ll}')
-
             if self.log_likelihood is None:
                 self.log_likelihood = ll
             else:
                 if np.abs(ll - self.log_likelihood) < self.tol:
-                    break
+                    return loss
+            self.log_likelihood = ll
 
+        return loss
 
-    def predict(self, X,):
+    def predict(self, X):
+        X = X.astype(int).flatten() 
         pass
     
 
@@ -68,7 +75,7 @@ class HMM:
 
         xi = np.zeros((len(X)-1, self.n_hidden, self.n_hidden))
         for t in range(len(X)-1):
-            xi[t] = alpha[t][:, np.newaxis] * self.A.dot(self.B[:, X[t+1]]).dot(beta[t+1])
+            xi[t] = (alpha[t] * self.A).dot(self.B[:, X[t+1]] * beta[t+1]) 
         xi /= xi.sum(axis=(1, 2), keepdims=True)
 
         return gamma, xi
@@ -77,18 +84,11 @@ class HMM:
     def _m_step(self, X, gamma, xi):
         self.A = xi.sum(axis=0) 
         self.A /= self.A.sum(axis=1, keepdims=True)
-        self.A = np.nan_to_num(self.A, 0)   
-
-        print(self.A)
         assert self.A.sum(axis=1).all() == 1
 
         bmap = np.eye(self.n_obs)[X]
-        self.B = gamma.T.dot(bmap) / np.nan_to_num(gamma.sum(axis=0)[:, np.newaxis], 1)
-        self.B = np.nan_to_num(self.B, 0)   
-        assert self.B.sum(axis=1).all() == 1 
-
-        print(self.A)
-        print(self.B)
+        self.B = gamma.T.dot(bmap) / gamma.sum(axis=0, keepdims=True).T
+        assert self.B.sum(axis=1).all() == 1
 
 
 if __name__ == '__main__':
