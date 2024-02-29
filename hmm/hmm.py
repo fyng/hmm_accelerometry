@@ -3,7 +3,7 @@ import json
 import codecs
 
 class HMM:
-    def __init__(self, n_hidden, n_obs, n_iter=100, tol=1e-6, verbose=False):
+    def __init__(self, n_hidden, n_obs, n_iter=500, tol=1e-6, verbose=False):
         self.n_hidden = n_hidden
         self.n_obs = n_obs
         self.n_iter = n_iter
@@ -17,8 +17,6 @@ class HMM:
 
     def fit(self, X):
         X = X.astype(int).flatten() 
-        T = len(X)
-
         # TODO: add guards on n_obs v.s. data range
 
         # initialize parameters
@@ -41,18 +39,11 @@ class HMM:
             ll = np.log(scale).sum()
             loss.append(ll)
 
-            # print(alpha)
-            # print(beta)
-
             # EM
             gamma, xi = self._e_step(X, alpha, beta)
-
-            # print(gamma)
-            # print(xi)   
-
             self._m_step(X, gamma, xi)
 
-            if self.verbose:
+            if self.verbose and i % 20 == 0:
                 print(f'iteration {i+1}, log likelihood: {ll}')
             if self.log_likelihood is None:
                 self.log_likelihood = ll
@@ -62,6 +53,43 @@ class HMM:
             self.log_likelihood = ll
 
         return loss
+    
+    def predict(self, X):
+        X = X.astype(int).flatten() 
+        _, scale = self.__forward(X)
+
+        return np.log(scale).sum()
+    
+
+    def save(self, filepath):
+        params = {}
+        params['A'] = self.A.tolist()
+        params['B'] = self.B.tolist()
+        params['pi'] = self.pi.tolist()
+
+        json.dump(params, codecs.open(filepath, 'w', encoding='utf-8'), 
+            separators=(',', ':'), 
+            sort_keys=True, 
+            indent=4)
+
+
+    def load(self, filepath):
+        obj_text = codecs.open(filepath, 'r', encoding='utf-8').read()
+        params = json.loads(obj_text)
+
+        if 'A' in params:
+            self.A = np.array(params['A'])
+        else:
+            raise RuntimeWarning('Cannot load model: no param \"A\"')
+        if 'B' in params:
+            self.B = np.array(params['B'])
+        else: 
+            raise RuntimeWarning('Cannot load model: no param \"B\"')
+        if 'pi' in params:
+            self.pi = np.array(params['pi'])
+        else: 
+            raise RuntimeWarning('Cannot load model: no param \"pi\"')
+
 
     def __forward(self, X):
         T = len(X)
@@ -98,9 +126,6 @@ class HMM:
 
         xi = np.zeros((T-1, self.n_hidden, self.n_hidden))
         for t in range(T-1):
-            # FIXME:
-            # print(self.B[:, X[t+1]].shape)
-            # print(alpha[t,:, None].shape)
             xi[t,:,:] = alpha[t,:, None] * self.A * self.B[:, X[t+1]] * beta[t+1,:]
         xi /= xi.sum(axis=(1, 2), keepdims=True)
 
@@ -116,16 +141,6 @@ class HMM:
         self.B = gamma.T.dot(bmap) / gamma.sum(axis=0, keepdims=True).T
         assert self.B.sum(axis=1).all() == 1
 
-
-    def predict(self, X):
-        X = X.astype(int).flatten() 
-        pass
-    
-    def save(self, path):
-        pass
-
-    def load(self, path):
-        pass
 
 
 if __name__ == '__main__':
