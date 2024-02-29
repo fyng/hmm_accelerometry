@@ -10,7 +10,7 @@ To install the classifier:
 git clone https://github.com/fyng/hmm_accemerometry.git
 ```
 ```
-cd hmm_classifier
+cd hmm_accelerometry
 ```
 
 2. Create virtual environment
@@ -18,7 +18,7 @@ cd hmm_classifier
 micromamba env create -f environment.yml
 ```
 ```
-micromamba activate gmm
+micromamba activate hmm
 ```
 
 3. Install the model
