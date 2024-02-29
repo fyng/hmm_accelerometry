@@ -19,12 +19,19 @@ def hmm_data_fixture():
 
 def test_hmm(hmm_data_fixture):
     X = hmm_data_fixture
-    print(len(X))
     model = HMM(2, 2, verbose=True)
     model.fit(X)
     assert model.A.shape == (2, 2)
     assert model.B.shape == (2, 2)
-    assert np.isclose(model.A, 
-                      np.array([[0.999, 0.001], [0.999, 0.001]]))    
-    assert np.isclose(model.B, 
-                      np.array([[1.0, 0.0], [0.5, 0.5]]))    
+
+    assert np.isclose(
+        model.A,
+        np.array([[0.999, 0.001],
+                  [0.001, 0.999]]),
+        atol = 0.001
+        ).all()
+    test1 = np.isclose(model.B, np.array([[1.0, 0.0],[0.5, 0.5]]),
+                       atol = 0.01, rtol = 0.01).all() 
+    test2 = np.isclose(model.B, np.array([[0.5, 0.5],[1.0, 0.0]]),
+                       atol = 0.01, rtol = 0.01).all() 
+    assert test1 or test2

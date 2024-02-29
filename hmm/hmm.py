@@ -17,40 +17,39 @@ class HMM:
 
     def fit(self, X):
         X = X.astype(int).flatten() 
-        loss = []
+        T = len(X)
 
         # TODO: add guards on n_obs v.s. data range
 
         # initialize parameters
-        self.A = np.eye(self.n_hidden, self.n_hidden) / 2
+        self.A = np.eye(self.n_hidden, self.n_hidden) * 0.9
         for i in range(self.n_hidden):
-            self.A[i, (i+1) % self.n_hidden] = 0.5
+            self.A[(i+1) % self.n_hidden, i] = 0.1
 
-        self.B = np.ones((self.n_hidden, self.n_obs)) / self.n_obs
+        self.B = np.random.rand(self.n_hidden, self.n_obs)
+        self.B /= self.B.sum(axis=1, keepdims=True)
 
         self.pi = np.zeros(self.n_hidden)
         self.pi[0] = 1
 
+        loss = []
         # train model
         for i in range(self.n_iter):
-            T = len(X)
-            alpha = np.zeros((T, self.n_hidden))
-            alpha[0] = self.pi * self.B[:, X[0]]
+            alpha, scale = self.__forward(X)
+            beta = self.__backward(X, scale)
 
-            # forward
-            for t in range(1, T):
-                alpha[t] = alpha[t-1].dot(self.A.dot(self.B[:, X[t]]))
-            # backward
-            beta = np.zeros((T, self.n_hidden))
-            beta[-1] = 1
-            for t in range(T-2, -1, -1):
-                beta[t] = beta[t+1].dot(self.A.dot(self.B[:, X[t+1]]))
-
-            ll = np.log(alpha[-1]).sum()
+            ll = np.log(scale).sum()
             loss.append(ll)
+
+            # print(alpha)
+            # print(beta)
 
             # EM
             gamma, xi = self._e_step(X, alpha, beta)
+
+            # print(gamma)
+            # print(xi)   
+
             self._m_step(X, gamma, xi)
 
             if self.verbose:
@@ -64,18 +63,45 @@ class HMM:
 
         return loss
 
-    def predict(self, X):
-        X = X.astype(int).flatten() 
-        pass
+    def __forward(self, X):
+        T = len(X)
+        scale = []
+        alpha = np.zeros((T, self.n_hidden))
+
+        alpha[0,:] = self.pi * self.B[:,X[0]]
+        scale.append(alpha[0].sum())
+        alpha[0] /= scale[0]
+
+        # forward
+        for t in range(1, T):
+            alpha[t,:] = (alpha[t-1,:] @ self.A) * self.B[:, X[t]]
+            scale.append(alpha[t].sum())
+            alpha[t,:] /= scale[-1]
+
+        return alpha, scale
     
+    
+    def __backward(self, X, scale):
+        T = len(X)
+        beta = np.ones((T, self.n_hidden))
+        for t in range(T-2, -1, -1):
+            # TODO: is this wrong?
+            beta[t,:] = (self.A  * self.B[:, X[t+1]]) @ beta[t+1,:]
+            beta[t,:] /= scale[t]
+
+        return beta
 
     def _e_step(self, X, alpha, beta):
+        T = len(X)
         gamma = alpha * beta
         gamma /= gamma.sum(axis=1, keepdims=True)
 
-        xi = np.zeros((len(X)-1, self.n_hidden, self.n_hidden))
-        for t in range(len(X)-1):
-            xi[t] = (alpha[t] * self.A).dot(self.B[:, X[t+1]] * beta[t+1]) 
+        xi = np.zeros((T-1, self.n_hidden, self.n_hidden))
+        for t in range(T-1):
+            # FIXME:
+            # print(self.B[:, X[t+1]].shape)
+            # print(alpha[t,:, None].shape)
+            xi[t,:,:] = alpha[t,:, None] * self.A * self.B[:, X[t+1]] * beta[t+1,:]
         xi /= xi.sum(axis=(1, 2), keepdims=True)
 
         return gamma, xi
@@ -89,6 +115,17 @@ class HMM:
         bmap = np.eye(self.n_obs)[X]
         self.B = gamma.T.dot(bmap) / gamma.sum(axis=0, keepdims=True).T
         assert self.B.sum(axis=1).all() == 1
+
+
+    def predict(self, X):
+        X = X.astype(int).flatten() 
+        pass
+    
+    def save(self, path):
+        pass
+
+    def load(self, path):
+        pass
 
 
 if __name__ == '__main__':
