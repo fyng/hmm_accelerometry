@@ -3,7 +3,7 @@ import json
 import codecs
 
 class HMM:
-    def __init__(self, n_hidden, n_obs, n_iter=500, tol=1e-6, verbose=False):
+    def __init__(self, n_hidden, n_obs, n_iter=500, tol=1e-3, verbose=False):
         self.n_hidden = n_hidden
         self.n_obs = n_obs
         self.n_iter = n_iter
@@ -54,6 +54,7 @@ class HMM:
 
         return loss
     
+
     def predict(self, X):
         X = X.astype(int).flatten() 
         _, scale = self.__forward(X)
@@ -97,13 +98,13 @@ class HMM:
         alpha = np.zeros((T, self.n_hidden))
 
         alpha[0,:] = self.pi * self.B[:,X[0]]
-        scale.append(alpha[0].sum())
+        scale.append(alpha[0,:].sum())
         alpha[0] /= scale[0]
 
         # forward
         for t in range(1, T):
             alpha[t,:] = (alpha[t-1,:] @ self.A) * self.B[:, X[t]]
-            scale.append(alpha[t].sum())
+            scale.append(alpha[t,:].sum())
             alpha[t,:] /= scale[-1]
 
         return alpha, scale
@@ -113,7 +114,6 @@ class HMM:
         T = len(X)
         beta = np.ones((T, self.n_hidden))
         for t in range(T-2, -1, -1):
-            # TODO: is this wrong?
             beta[t,:] = (self.A  * self.B[:, X[t+1]]) @ beta[t+1,:]
             beta[t,:] /= scale[t]
 
@@ -135,11 +135,12 @@ class HMM:
     def _m_step(self, X, gamma, xi):
         self.A = xi.sum(axis=0) 
         self.A /= self.A.sum(axis=1, keepdims=True)
-        assert self.A.sum(axis=1).all() == 1
 
         bmap = np.eye(self.n_obs)[X]
         self.B = gamma.T.dot(bmap) / gamma.sum(axis=0, keepdims=True).T
-        assert self.B.sum(axis=1).all() == 1
+        # emission probability not zero
+        self.B += 1e-8
+        self.B /= self.B.sum(axis=1, keepdims=True)
 
 
 
