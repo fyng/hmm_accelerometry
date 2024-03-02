@@ -1,0 +1,13 @@
+name: hmm
+channels:
+- conda-forge
+dependencies:
+- jupyterlab
+- matplotlib
+- nb_conda
+- numpy
+- python=3.10
+- scikit-learn
+- setuptools
+- pytest
+
