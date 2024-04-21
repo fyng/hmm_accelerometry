@@ -29,3 +29,5 @@ pip install .
 4. Run the model
 In `demo.ipynb`, update the directory of the test folder. Then run all cells.
 
+# Acknowledgement
+ECE 5242 - Intelligent Autonomous Systems taught by Prof Daniel Lee & Travers Rhodes 
